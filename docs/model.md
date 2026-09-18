@@ -29,11 +29,11 @@ Vi har brug for en central tabel for selve taxituren. Denne tabel skal indeholde
 
 **Hvad repræsenterer én række i `fact_trip`?**
 
-> Én række i `fact_trip` repræsenterer én unik taxitur (gennemført, afbrudt eller påbegyndt) foretaget af en NYC Yellow Taxi.
+> En række i `fact_trip` repræsenterer en unik taxitur (gennemført, afbrudt eller påbegyndt) foretaget af en NYC Yellow Taxi.
 
 **Hvorfor passer dette grain?**
 
-> Dette er det lavest mulige detaljeniveau (atomic grain). Ved at bevare én række pr. tur kan vi rulle data op (aggregere) på præcis de niveauer, vi har lyst til (fx pr. time, pr. ugedag, pr. bydel) uden at miste fleksibilitet til at besvare mandagens analysebehov.
+> Dette er det lavest mulige detaljeniveau (atomic grain). Ved at bevare en række pr. tur kan vi aggregere på præcis de niveauer, vi har lyst til (fx pr. time, pr. ugedag, pr. bydel) uden at miste fleksibilitet til at besvare mandagens analysebehov.
 
 # 3. Measures og dimensions
 
@@ -47,17 +47,17 @@ Vi har brug for en central tabel for selve taxituren. Denne tabel skal indeholde
 
 **Forskellen på measure og dimension:**
 
-> En **measure** er kvantitativ og numerisk (noget der kan summeres eller beregnes gennemsnit af, fx pris). En **dimension** er beskrivende kontekst (hvem, hvad, hvor, hvornår – fx zonenavn eller ugedag).
+> En **measure** er kvantitativ og numerisk f.eks. pris. En **dimension** er beskrivende kontekst, altså hvem, hvad, hvor, hvornår. F.eks. zonenavn eller ugedag.
 
 # 4. Relationer og roller
 
 **Role-playing dimension: `dim_zone`**
 
-> Tabellen `dim_zone` indeholder alle NYC's taxizoner. I `fact_trip` har vi både en `pickup_zone_key` og en `dropoff_zone_key`. Begge disse nøgler peger på den _samme_ dimensionstabel (`dim_zone`), men tabellen spiller to forskellige "roller" (afhentning vs. aflevering) afhængigt af, hvilken nøgle vi joiner på.
+> Tabellen `dim_zone` indeholder alle NYC's taxizoner. I `fact_trip` har vi både en `pickup_zone_key` og en `dropoff_zone_key`. Begge disse nøgler peger på den _samme_ dimensionstabel (`dim_zone`), men tabellen spiller to forskellige "roller" afhængigt af, hvilken nøgle vi joiner på.
 
 **Role-playing dimension: `dim_date`**
 
-> Tilsvarende bruges `dim_date` til at slå datoinformation (ugedag, måned) op for både `pickup_date` og `dropoff_date`. Én dimension, flere roller.
+> Tilsvarende bruges `dim_date` til at slå datoinformation (ugedag, måned) op for både `pickup_date` og `dropoff_date`. En dimension, flere roller.
 
 # 5. Modeldiagram
 
