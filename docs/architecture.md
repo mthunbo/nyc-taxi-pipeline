@@ -15,20 +15,20 @@
 
 ### Data
 
-**Yellow Taxi:** Én rå række ser ud til at repræsentere:
-Én enkelt registreret taxitur i New York City (enten påbegyndt, gennemført eller afbrudt) opsamlet af et af de autoriserede taxametersystemer i løbet af januar 2025.
+**Yellow Taxi:** En rå række ser ud til at repræsentere:
+En enkelt registreret taxitur i New York City (enten påbegyndt, gennemført eller afbrudt) i løbet af januar 2025.
 
 **Taxi Zone Lookup:** Én række repræsenterer:
-Én geografisk afgrænset taxazone defineret af NYC Taxi & Limousine Commission (TLC). Filen fungerer som en stamdatatabel, der forbinder et nummermæssigt `LocationID` med navnet på en bydel (`Borough`), et zonenavn (`Zone`) og en servicetype (`service_zone`).
+En geografisk afgrænset taxazone defineret af NYC Taxi & Limousine Commission (TLC). Filen fungerer som en stamdatatabel, der forbinder et `LocationID` med navnet på en bydel (`Borough`), et zonenavn (`Zone`) og en servicetype (`service_zone`).
 
 ### Feltforklaringer og observationer
 
 1. **`tpep_pickup_datetime`**
    - **Betydning & Enhed:** Dato og klokkeslæt (YYYY-MM-DD HH:MM:SS) for hvornår taxameteret blev slået til ved turens start.
 2. **`trip_distance`**
-   - **Betydning & Enhed:** Den samlede kørte turafstand i miles målt af køretøjets taxameter (1 mile ≈ 1,609 km).
+   - **Betydning & Enhed:** Den samlede kørte turafstand i miles målt af køretøjets taxameter.
 3. **`PULocationID`**
-   - **Betydning & Enhed:** TLC Taxi Zone ID for afhentningsstedet (Pickup Location). Heltals-ID fra 1 til 265, som fungerer som fremmednøgle til `taxi_zone_lookup.csv`.
+   - **Betydning & Enhed:** TLC Taxi Zone ID for afhentningsstedet (Pickup Location). Heltals ID fra 1 til 265, som fungerer som fremmednøgle til `taxi_zone_lookup.csv`.
 4. **`payment_type`**
    - **Betydning & Enhed:** Numerisk kode for betalingsform (`1` = Credit card, `2` = Cash, `3` = No charge, `4` = Dispute, `5` = Unknown, `6` = Voided trip).
 5. **`total_amount`**
@@ -60,7 +60,7 @@
 
 ## 2. Dag 02 – Arkitekturskitse og Datamodel
 
-Nedenstående dataflow illustrerer rejsen fra ustrukturerede inputfiler til aggregerede resultater. Fordi hele pipelinen nu er bygget, er samtlige lag markeret som implementeret. Selve ER-diagrammet (Starchart) for datamodellen findes i `docs/model.md`.
+Nedenstående dataflow illustrerer rejsen fra ustrukturerede inputfiler til aggregerede resultater. Selve ER-diagrammet (Starchart) for datamodellen findes i `docs/model.md`.
 
 ```mermaid
 flowchart TD
@@ -109,7 +109,7 @@ flowchart TD
 
 ## 3. Dag 03 – Databehandling, Aggregate og Genskabelse
 
-Her adskiller vi data i tre modenhedslag:
+Her adskiller vi data i tre lag:
 
 1. **Raw (Originale Data):** `.parquet` og `.csv`. Ligger gemt lokalt og fungerer som "Source of Truth".
 2. **Modeled (Afledt Stjerneskema):** `fact_trip`, `dim_date` og `dim_zone`. Data modelleret for at gøre dem relaterbare.
@@ -119,9 +119,9 @@ Her adskiller vi data i tre modenhedslag:
 
 I `sql/04_aggregates.sql` har vi arbejdet med analysebehovet: _Regional efterspørgsel pr. dag_. Data er rullet sammen i `agg_daily_borough_revenue`.
 
-- **Grain før (i `fact_trip`):** Én række = én specifik taxitur (atomic grain).
-- **Grain efter (i aggregate):** Én række = samlet aktivitet for én bestemt bydel på én bestemt dato.
-- **Konklusion på kontroller:** Vores duckdb-queries viser, at rækkeantallet reduceres massivt fra ~3,4 mio. til ganske få rækker pr. måned.
+- **Grain før (i `fact_trip`):** En række = En specifik taxitur (atomic grain).
+- **Grain efter (i aggregate):** En række = samlet aktivitet for En bestemt bydel på En bestemt dato.
+- **Konklusion på kontroller:** Vores duckdb-queries viser, at rækkeantallet reduceres massivt fra 3,4 mio. til ganske få rækker pr. måned.
 
 **Spørgsmål og datagrundlag:**
 
@@ -184,7 +184,7 @@ flowchart LR
     S3 -- "Udfører DDL/INSERT (Load)" --> DB
 ```
 
-- **Hvorfor `01_explore.sql` ikke er med:** Udforskning er ad-hoc analyse. Vores reproducerbare pipeline skal udelukkende indeholde DDL/DML scripts, der bygger datavarehuset.
+- **Hvorfor `01_explore.sql` ikke er med:** Udforskning er ad-hoc analyse. Vores reproducerbare pipeline skal udelukkende indeholde DDL/DML scripts, der bygger vores datawarehouse.
 - **Afhængigheder og Transaktionssikkerhed (Fail-stop):** Python-scriptet validerer først alle `.sql`-filer. Pipelinen pakker derefter kørslerne ind i en `BEGIN TRANSACTION`. Hvis `04_aggregates.sql` fejler, udløser scriptet `ROLLBACK`. Dette fjerner alt, der blev oprettet i `02` og `03`, så vi aldrig efterlader en korrupt/halv database. Forbindelsen lukkes sikkert via `finally`.
 
 ### ETL eller ELT – angiv destinationen
@@ -198,7 +198,7 @@ flowchart LR
 - **Genkørsel:** Vores SQL-filer bruger `CREATE TABLE IF NOT EXISTS`. Kørsel 2 fordoblede **ikke** data. Databasen bevarede sit forventede antal rækker (3.475.226 ture).
 - **Nyt batch (Februar 2025):**
   Når `yellow_tripdata_2025-02.parquet` lander, ignoreres de nye data, hvis vi beholder `IF NOT EXISTS`.
-  _Plan:_ Opdater SQL logik til enten `CREATE OR REPLACE` for en fuld rebuild, eller opsætning af inkrementel indlæsning via `INSERT INTO fact_trip` der udelukkende medtager datoer `> 2025-01-31`. Dette kræver schemas-kontrol og sikring mod primærnøgle-overlap.
+  _Plan:_ Opdater SQL logik til enten `CREATE OR REPLACE` for en fuld rebuild, eller opsætning af inkrementel indlæsning via `INSERT INTO fact_trip` der udelukkende medtager datoer `> 2025-01-31`. Dette kræver schemas kontrol og sikring mod primærnøgle overlap.
 
 ### Streamingvariant og ansvar
 
@@ -212,12 +212,12 @@ flowchart LR
 ```
 
 - **Event time:** I streaming skelnes der mellem Event Time, hvornår turen sluttede i virkeligheden, og Processing Time, hvornår serveren fik beskeden. Forsinkede events kræver styring af 'late arriving facts'.
-- **Ansvar:** _Produceren_ udsender kun data. _Queue_ (fx Kafka) er ansvarlig for at sikre beskederne, hvis databasen går ned. _Processoren_ udfører transformationen, mens _Orchestratoren_ udelukkende styrer tidsplaner og overvåger workers (udfører ikke selve SQL-koden).
+- **Ansvar:** _Produceren_ udsender kun data. _Queue_, fx Kafka, er ansvarlig for at sikre beskederne hvis databasen går ned. _Processoren_ udfører transformationen, mens _Orchestratoren_ udelukkende styrer tidsplaner og overvåger workers.
 
 ### Konceptuelt paralleliseringsdesign
 
-- **Udløser:** Hvis løsningen skal håndtere et 10-års historisk dump , måske flere milliarder af rækker, vil en single-thread kørsel ramme en hardware-grænse (RAM/Memory Limit).
-- **Løsning:** Behandlingen paralleliseres over flere workers (CPU-kerner eller fysiske servere).
+- **Udløser:** Hvis løsningen skal håndtere et 10-års historisk dump , måske flere milliarder af rækker, vil en single-thread ramme en hardware grænse.
+- **Løsning:** Behandlingen paralleliseres over flere workers, f.eks. CPU-kerner eller fysiske servere.
 
 ```mermaid
 flowchart TD
@@ -253,8 +253,8 @@ flowchart TD
 
 ## 5. Presentation Layer & Data Marts (Grafana)
 
-For at gøre vores Data Warehouse tilgængeligt for slutbrugere, har vi etableret et præsentationslag via Grafana (kørende i Docker).
-Frem for at Grafana forespørger direkte i vores store millioner-rækkers fact_trip tabel, bygger vi aggregerede udtræk (Data Marts) via DuckDB. Dette sikrer høj ydeevne og lynhurtig indlæsning af dashboards.
+For at gøre vores Data Warehouse tilgængeligt for slutbrugere, har vi etableret et præsentationslag via Grafana, kørende i Docker.
+Frem for at Grafana forespørger direkte i vores store millioner-rækkers fact_trip tabel, bygger vi aggregerede udtræk, Data Marts, via DuckDB.
 
 Eksempler på aggregater vi stiller til rådighed:
 
